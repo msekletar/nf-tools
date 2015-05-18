@@ -839,6 +839,7 @@ int lnf_filter_init(lnf_filter_t **filterp, char *expr) {
 int lnf_filter_match(lnf_filter_t *filter, lnf_rec_t *rec) {
 
 	filter->engine->nfrecord = (uint64_t *)rec->master_record;
+	filter->engine->lnf_rec = rec;
 
 	return  (*filter->engine->FilterEngine)(filter->engine);
 }
