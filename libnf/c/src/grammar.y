@@ -486,7 +486,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			yyerror("Router SysID expected between be 1..255");
 			YYABORT;
 		}
-		$$.self = NewBlock(OffsetExporterSysID, MaskExporterSysID, ($2 << ShiftExporterSysID) & MaskExporterSysID, CMP_EQ, FUNC_NONE, NULL); 
+		$$.self = NewBlock1(LNF_FLD_ENGINE_ID, $2, CMP_EQ);
 	}
 
 	| dqual PORT comp NUMBER {	
