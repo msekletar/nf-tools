@@ -251,21 +251,21 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 		switch ( $1.direction ) {
 			case DIR_UNSPEC:
 			case SOURCE:
-				$$.self = NewBlock(OffsetTos, MaskTos, ($4 << ShiftTos) & MaskTos, $3.comp, FUNC_NONE, NULL); 
+                                $$.self = NewBlock1(LNF_FLD_TOS, $4, $3.comp);
 				break;
 			case DESTINATION:
-				$$.self = NewBlock(OffsetDstTos, MaskDstTos, ($4 << ShiftDstTos) & MaskDstTos, $3.comp, FUNC_NONE, NULL); 
+                                $$.self = NewBlock1(LNF_FLD_DST_TOS, $4, $3.comp); 
 				break;
 			case SOURCE_OR_DESTINATION: 
 				$$.self = Connect_OR(
-					NewBlock(OffsetTos, MaskTos, ($4 << ShiftTos) & MaskTos, $3.comp, FUNC_NONE, NULL),
-					NewBlock(OffsetDstTos, MaskDstTos, ($4 << ShiftDstTos) & MaskDstTos, $3.comp, FUNC_NONE, NULL)
+                                                     NewBlock1(LNF_FLD_TOS, $4, $3.comp),
+                                                     NewBlock1(LNF_FLD_DST_TOS, $4, $3.comp)
 				);
 				break;
 			case SOURCE_AND_DESTINATION:
 				$$.self = Connect_AND(
-					NewBlock(OffsetTos, MaskTos, ($4 << ShiftTos) & MaskTos, $3.comp, FUNC_NONE, NULL),
-					NewBlock(OffsetDstTos, MaskDstTos, ($4 << ShiftDstTos) & MaskDstTos, $3.comp, FUNC_NONE, NULL)
+                                                      NewBlock1(LNF_FLD_TOS, $4, $3.comp),
+                                                      NewBlock1(LNF_FLD_DST_TOS, $4, $3.comp)
 				);
 				break;
 			default:
