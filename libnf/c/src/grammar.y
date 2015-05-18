@@ -497,11 +497,9 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 
 		switch ( $1.direction ) {
 			case SOURCE:
-                            /* $$.self = NewBlock(OffsetPort, MaskSrcPort, ($4 << ShiftSrcPort) & MaskSrcPort, $3.comp, FUNC_NONE, NULL ); */
                                 $$.self = NewBlock1(LNF_FLD_SRCPORT, $4, $3.comp);
 				break;
 			case DESTINATION:
-                            /*$$.self = NewBlock(OffsetPort, MaskDstPort, ($4 << ShiftDstPort) & MaskDstPort, $3.comp, FUNC_NONE, NULL ); */
                                 $$.self = NewBlock1(LNF_FLD_DSTPORT, $4, $3.comp);
 				break;
 			case DIR_UNSPEC:
@@ -509,17 +507,12 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 				$$.self = Connect_OR(
                                                      NewBlock1(LNF_FLD_SRCPORT, $4, $3.comp),
                                                      NewBlock1(LNF_FLD_DSTPORT, $4, $3.comp)
-                                                     /* NewBlock(OffsetPort, MaskSrcPort, ($4 << ShiftSrcPort) & MaskSrcPort, $3.comp, FUNC_NONE, NULL ),*/
-                                                     /* NewBlock(OffsetPort, MaskDstPort, ($4 << ShiftDstPort) & MaskDstPort, $3.comp, FUNC_NONE, NULL ) */
 				);
 				break;
 			case SOURCE_AND_DESTINATION:
 				$$.self = Connect_AND(
                                                       NewBlock1(LNF_FLD_SRCPORT, $4, $3.comp),
                                                       NewBlock1(LNF_FLD_DSTPORT, $4, $3.comp)
-
-                                                      /* NewBlock(OffsetPort, MaskSrcPort, ($4 << ShiftSrcPort) & MaskSrcPort, $3.comp, FUNC_NONE, NULL ),
-                                                         NewBlock(OffsetPort, MaskDstPort, ($4 << ShiftDstPort) & MaskDstPort, $3.comp, FUNC_NONE, NULL ) */
 				);
 				break;
 			default:
