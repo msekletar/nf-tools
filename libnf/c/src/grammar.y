@@ -279,7 +279,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			yyerror("Flags must be 0..63");
 			YYABORT;
 		}
-		$$.self = NewBlock(OffsetFlags, MaskFlags, ($3 << ShiftFlags) & MaskFlags, $2.comp, FUNC_NONE, NULL); 
+		$$.self = NewBlock1(LNF_FLD_TCP_FLAGS, $3, $2.comp);
 	}
 
 	| FLAGS STRING	{	
@@ -305,8 +305,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			YYABORT;
 		}
 
-		$$.self = NewBlock(OffsetFlags, (fl << ShiftFlags) & MaskFlags, 
-					(fl << ShiftFlags) & MaskFlags, CMP_FLAGS, FUNC_NONE, NULL); 
+		$$.self = NewBlock1(LNF_FLD_TCP_FLAGS, fl, CMP_FLAGS);
 	}
 
 	| dqual IP STRING { 	
