@@ -470,15 +470,15 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 	}
 
 	| CLIENT LATENCY comp NUMBER { 	
-		$$.self = NewBlock(OffsetClientLatency, MaskLatency, $4, $3.comp, FUNC_NONE, NULL); 
+                $$.self = NewBlock1(LNF_FLD_CLIENT_NW_DELAY_USEC, $4, $3.comp);
 	}
 
-	| SERVER LATENCY comp NUMBER { 	
-		$$.self = NewBlock(OffsetServerLatency, MaskLatency, $4, $3.comp, FUNC_NONE, NULL); 
+	| SERVER LATENCY comp NUMBER {
+                $$.self = NewBlock1(LNF_FLD_SERVER_NW_DELAY_USEC, $4, $3.comp);
 	}
 
-	| APP LATENCY comp NUMBER { 	
-		$$.self = NewBlock(OffsetAppLatency, MaskLatency, $4, $3.comp, FUNC_NONE, NULL); 
+	| APP LATENCY comp NUMBER {
+                $$.self = NewBlock1(LNF_FLD_APPL_LATENCY_USEC, $4, $3.comp);            
 	}
 
 	| SYSID NUMBER { 	
