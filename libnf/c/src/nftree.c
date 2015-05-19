@@ -504,7 +504,7 @@ int	evaluate, invert;
 		offset   = args->filter[index].offset;
 		invert   = args->filter[index].invert;
                 
-                if (args->filter[index].type == 1) {
+                if (args->filter[index].type ==1) {
                         lnf_rec_fget(args->lnf_rec, args->filter[index].field, &comp_value[0]);
                 } else
                          comp_value[0]= args->nfrecord[offset] & args->filter[index].mask;
