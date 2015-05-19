@@ -259,7 +259,7 @@ uint32_t	NewBlock(uint32_t offset, uint64_t mask, uint64_t value, uint16_t comp,
 
 } /* End of NewBlock */
 
-uint32_t NewBlock1(off_t field, uint64_t value, uint16_t comp) {
+uint32_t NewBlock1(off_t field, uint64_t value, uint16_t comp, uint32_t function) {
         uint32_t n = NumBlocks;
         
         if ( n >= ( memblocks * MAXBLOCKS ) ) {
