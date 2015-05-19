@@ -1030,7 +1030,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			yyerror("Invalid port");
 			YYABORT;
 		}
-		$$.self = NewBlock(OffsetPortBlock, MaskPortBlockStart, ( $4 << ShiftPortBlockStart) & MaskPortBlockStart, $3.comp, FUNC_NONE, NULL );
+		$$.self = NewBlock1(LNF_FLD_BLOCK_START, $4, $3.comp, FUNC_NONE, NULL );
 #else
 		yyerror("NAT filters not available");
 		YYABORT;
@@ -1043,7 +1043,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			yyerror("Invalid port");
 			YYABORT;
 		}
-		$$.self = NewBlock(OffsetPortBlock, MaskPortBlockEnd, ( $4 << ShiftPortBlockEnd) & MaskPortBlockEnd, $3.comp, FUNC_NONE, NULL );
+		$$.self = NewBlock1(LNF_FLD_BLOCK_END, $4, $3.comp, FUNC_NONE, NULL );
 #else
 		yyerror("NAT filters not available");
 		YYABORT;
@@ -1056,7 +1056,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			yyerror("Invalid port");
 			YYABORT;
 		}
-		$$.self = NewBlock(OffsetPortBlock, MaskPortBlockStep, ( $4 << ShiftPortBlockStep) & MaskPortBlockStep, $3.comp, FUNC_NONE, NULL );
+		$$.self = NewBlock1(LNF_FLD_BLOCK_STEP, $4, $3.comp, FUNC_NONE, NULL );
 #else
 		yyerror("NAT filters not available");
 		YYABORT;
@@ -1069,7 +1069,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			yyerror("Invalid port");
 			YYABORT;
 		}
-		$$.self = NewBlock(OffsetPortBlock, MaskPortBlockSize, ( $4 << ShiftPortBlockSize) & MaskPortBlockSize, $3.comp, FUNC_NONE, NULL );
+		$$.self = NewBlock1(LNF_FLD_BLOCK_SIZE, $4, $3.comp, FUNC_NONE, NULL );
 #else
 		yyerror("NAT filters not available");
 		YYABORT;
