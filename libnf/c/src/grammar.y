@@ -937,37 +937,29 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 
 	| inout acl comp NUMBER {
 #ifdef NSEL
-		uint64_t offset, mask, shift;
+		uint64_t offset;
 		if ( $1.inout == INGRESS ) {
 			switch ($2.acl) {
 				case ACL:
-					offset = OffsetIngressAclId;
-					mask   = MaskIngressAclId;	
-					shift  = ShiftIngressAclId;
+					offset = LNF_FLD_INGRESS_ACL_ID;
 					break;
 				case ACE:
-					offset = OffsetIngressAceId;
-					mask   = MaskIngressAceId;	
-					shift  = ShiftIngressAceId;
+					offset = LNF_FLD_INGRESS_ACE_ID;
 					break;
 				case XACE:
-					offset = OffsetIngressGrpId;
-					mask   = MaskIngressGrpId;	
-					shift  = ShiftIngressGrpId;
+					offset = LNF_FLD_INGRESS_XACE_ID;
 					break;
 				default:
 					yyerror("Invalid ACL specifier");
 					YYABORT;
 			}
 		} else if ( $1.inout == EGRESS && $$.acl == ACL ) {
-			offset = OffsetEgressAclId;
-			mask   = MaskEgressAclId;	
-			shift  = ShiftEgressAclId;
+			offset = LNF_FLD_EGRESS_ACL_ID;
 		} else {
 			yyerror("ingress/egress syntax error");
 			YYABORT;
 		}
-		$$.self = NewBlock(offset, mask, ($4 << shift) & mask , $3.comp, FUNC_NONE, NULL );
+		$$.self = NewBlock1(offset, $4, $3.comp, FUNC_NONE, NULL );
 
 #else
 		yyerror("NSEL/ASA filters not available");
