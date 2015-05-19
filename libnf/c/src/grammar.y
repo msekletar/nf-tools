@@ -657,7 +657,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			yyerror("Engine ID of range 0..255");
 			YYABORT;
 		}
-		$$.self = NewBlock(OffsetRouterID, MaskEngineID, ($3 << ShiftEngineID) & MaskEngineID, $2.comp, FUNC_NONE, NULL);
+		$$.self = NewBlock1(LNF_FLD_ENGINE_ID, $3, $2.comp, FUNC_NONE, NULL);
 
 	}
  
