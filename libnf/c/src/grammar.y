@@ -618,10 +618,10 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 		$$.self = Connect_AND(
 			// imply proto ICMP with a proto ICMP block
 			Connect_OR (
-				NewBlock(OffsetProto, MaskProto, ((uint64_t)IPPROTO_ICMP << ShiftProto)  & MaskProto, CMP_EQ, FUNC_NONE, NULL), 
-				NewBlock(OffsetProto, MaskProto, ((uint64_t)IPPROTO_ICMPV6 << ShiftProto)  & MaskProto, CMP_EQ, FUNC_NONE, NULL)
+				NewBlock1(LNF_FLD_PROT, (uint64_t) IPPROTO_ICMP, CMP_EQ, FUNC_NONE, NULL),
+				NewBlock1(LNF_FLD_PROT, (uint64_t) IPPROTO_ICMPV6, CMP_EQ, FUNC_NONE, NULL)
 			),
-			NewBlock(OffsetPort, MaskICMPtype, ($2 << ShiftICMPtype) & MaskICMPtype, CMP_EQ, FUNC_NONE, NULL )
+			NewBlock1(LNF_FLD_ICMP_TYPE, $2, CMP_EQ, FUNC_NONE, NULL)
 		);
 
 	}
