@@ -1004,7 +1004,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			yyerror("Invalid ingress vrf ID");
 			YYABORT;
 		}
-		$$.self = NewBlock(OffsetIVRFID, MaskIVRFID, ( $4 << ShiftIVRFID) & MaskIVRFID, $3.comp, FUNC_NONE, NULL );
+		$$.self = NewBlock1(LNF_FLD_INGRESS_VRFID, $4, $3.comp, FUNC_NONE, NULL );
 #else
 		yyerror("NAT filters not available");
 		YYABORT;
@@ -1017,7 +1017,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			yyerror("Invalid egress vrf ID");
 			YYABORT;
 		}
-		$$.self = NewBlock(OffsetEVRFID, MaskEVRFID, ( $4 << ShiftEVRFID) & MaskEVRFID, $3.comp, FUNC_NONE, NULL );
+		$$.self = NewBlock1(LNF_FLD_EGRESS_VRFID, $4, $3.comp, FUNC_NONE, NULL );
 #else
 		yyerror("NAT filters not available");
 		YYABORT;
