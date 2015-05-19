@@ -906,22 +906,22 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 
 		switch ( $1.direction ) {
 			case SOURCE:
-				$$.self = NewBlock(OffsetXLATEPort, MaskXLATESRCPORT, ($4 << ShiftXLATESRCPORT) & MaskXLATESRCPORT, $3.comp, FUNC_NONE, NULL );
+				$$.self = NewBlock1(LNF_FLD_XLATE_SRC_PORT, $4, $3.comp, FUNC_NONE, NULL);
 				break;
 			case DESTINATION:
-				$$.self = NewBlock(OffsetXLATEPort, MaskXLATEDSTPORT, ($4 << ShiftXLATEDSTPORT) & MaskXLATEDSTPORT, $3.comp, FUNC_NONE, NULL );
+				$$.self = NewBlock1(LNF_FLD_XLATE_DST_PORT, $4, $3.comp, FUNC_NONE, NULL);
 				break;
 			case DIR_UNSPEC:
 			case SOURCE_OR_DESTINATION:
 				$$.self = Connect_OR(
-					NewBlock(OffsetXLATEPort, MaskXLATESRCPORT, ($4 << ShiftXLATESRCPORT) & MaskXLATESRCPORT, $3.comp, FUNC_NONE, NULL ),
-					NewBlock(OffsetXLATEPort, MaskXLATEDSTPORT, ($4 << ShiftXLATEDSTPORT) & MaskXLATEDSTPORT, $3.comp, FUNC_NONE, NULL )
+					NewBlock1(LNF_FLD_XLATE_SRC_PORT, $4, $3.comp, FUNC_NONE, NULL),
+					NewBlock1(LNF_FLD_XLATE_SRC_PORT, $4, $3.comp, FUNC_NONE, NULL)
 				);
 				break;
 			case SOURCE_AND_DESTINATION:
 				$$.self = Connect_AND(
-					NewBlock(OffsetXLATEPort, MaskXLATESRCPORT, ($4 << ShiftXLATESRCPORT) & MaskXLATESRCPORT, $3.comp, FUNC_NONE, NULL ),
-					NewBlock(OffsetXLATEPort, MaskXLATEDSTPORT, ($4 << ShiftXLATEDSTPORT) & MaskXLATEDSTPORT, $3.comp, FUNC_NONE, NULL )
+					NewBlock1(LNF_FLD_XLATE_SRC_PORT, $4, $3.comp, FUNC_NONE, NULL),
+					NewBlock1(LNF_FLD_XLATE_SRC_PORT, $4, $3.comp, FUNC_NONE, NULL)
 				);
 				break;
 			default:
