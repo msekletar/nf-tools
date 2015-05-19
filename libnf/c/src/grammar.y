@@ -481,6 +481,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
                 $$.self = NewBlock1(LNF_FLD_APPL_LATENCY_USEC, $4, $3.comp, FUNC_NONE, NULL);
 	}
 
+                /* XXX : ENGINE_ID most likely not equivalent of previous code */
 	| SYSID NUMBER { 	
 		if ( $2 > 255 ) {
 			yyerror("Router SysID expected between be 1..255");
