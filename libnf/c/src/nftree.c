@@ -89,6 +89,8 @@ static inline void mpls_eos_function(uint64_t *record_data, uint64_t *comp_value
 static inline void mpls_any_function(uint64_t *record_data, uint64_t *comp_values);
 static inline void pblock_function(uint64_t *record_data, uint64_t *comp_values);
 
+static inline void pblock_function1(void *r, uint64_t *comp_values);
+
 /* 
  * flow processing function table:
  * order of entries must correspond with filter functions enum in nftree.h 
@@ -105,6 +107,17 @@ static struct flow_procs_map_s {
 	{"mpls eos",	mpls_eos_function},
 	{"mpls any",	mpls_any_function},
  	{"pblock", 		pblock_function},
+	{NULL,			NULL}
+};
+
+typedef void (*flow_lnf_proc_t) (void *r, uint64_t *comp_values);
+
+static struct flow_lnf_procs_map_s {
+	char		*name;
+	flow_lnf_proc_t function;
+} flow_lnf_procs_map[] = {
+	{"none",		NULL},
+ 	{"pblock", 		pblock_function1},
 	{NULL,			NULL}
 };
 
@@ -281,6 +294,9 @@ uint32_t NewBlock1(off_t field, uint64_t value, uint16_t comp, uint32_t function
 	FilterTree[n].OnTrue = 0;
 	FilterTree[n].OnFalse = 0;
 	FilterTree[n].comp = comp;
+
+        FilterTree[n].function1 = flow_lnf_procs_map[function].function;
+        FilterTree[n].fname = flow_lnf_procs_map[function].name;
         
 	FilterTree[n].numblocks = 1;
 	FilterTree[n].blocklist = (uint32_t *)malloc(sizeof(uint32_t));
@@ -495,8 +511,14 @@ int	evaluate, invert;
                 
 		comp_value[1] = args->filter[index].value;
 
-		if (args->filter[index].function != NULL)
-			args->filter[index].function(args->nfrecord, comp_value);
+                if (args->filter[index].type == 1) {
+                        if (args->filter[index].function1 != NULL)
+                                args->filter[index].function1(args->lnf_rec, comp_value);
+                } else
+                        if (args->filter[index].function != NULL)
+                                args->filter[index].function(args->nfrecord, comp_value);
+
+                
 
 		switch (args->filter[index].comp) {
 			case CMP_EQ:
@@ -664,6 +686,20 @@ master_record_t *record = (master_record_t *)record_data;
 #else
 	comp_values[1] = 0;
 #endif
-
 } // End of pblock_function
+
+static inline void pblock_function1(lnf_rec_t *r, uint64_t *comp_values) {
+        uint64_t block_start;
+        uint64_t block_end;
+
+        lnf_rec_fget(r, LNF_FLD_BLOCK_START, &block_start);
+        lnf_rec_fget(r, LNF_FLD_BLOCK_END, &block_end);
+        
+	if ( (comp_values[0] >= block_start) && (comp_values[0] <= block_end) ) {
+		comp_values[1] = comp_values[0];
+	} else {
+		// force "not equal"
+		comp_values[1] = comp_values[0] + 1;
+	}
+}
 
