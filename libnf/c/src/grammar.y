@@ -749,7 +749,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			yyerror("Invalid xevent ID");
 			YYABORT;
 		}
-		$$.self = NewBlock(OffsetConnID, MaskFWXevent, ( $4 << ShiftFWXevent) & MaskFWXevent, $3.comp, FUNC_NONE, NULL );
+		$$.self = NewBlock1(LNF_FLD_FW_XEVENT, $4, $3.comp, FUNC_NONE, NULL);
 #else
 		yyerror("NSEL/ASA filters not available");
 		YYABORT;
