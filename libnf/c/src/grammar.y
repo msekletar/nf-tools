@@ -168,7 +168,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			YYABORT;
 		}
 		/*$$.self = NewBlock(OffsetProto, MaskProto, (proto << ShiftProto)  & MaskProto, CMP_EQ, FUNC_NONE, NULL);*/
-                $$.self = NewBlock1(LNF_FLD_PROT, proto, CMP_EQ, FUNC_NONE);
+                $$.self = NewBlock1(LNF_FLD_PROT, proto, CMP_EQ, FUNC_NONE, NULL);
 	}
 
 	| PROTO STRING { 
@@ -184,7 +184,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			YYABORT;
 		}
 		/* $$.self = NewBlock(OffsetProto, MaskProto, (proto << ShiftProto)  & MaskProto, CMP_EQ, FUNC_NONE, NULL); */
-                $$.self = NewBlock1(LNF_FLD_PROT, proto, CMP_EQ, FUNC_NONE);
+                $$.self = NewBlock1(LNF_FLD_PROT, proto, CMP_EQ, FUNC_NONE, NULL);
 	}
 
 	| dqual PACKETS comp NUMBER { 
@@ -251,21 +251,21 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 		switch ( $1.direction ) {
 			case DIR_UNSPEC:
 			case SOURCE:
-                            $$.self = NewBlock1(LNF_FLD_TOS, $4, $3.comp, FUNC_NONE);
+                            $$.self = NewBlock1(LNF_FLD_TOS, $4, $3.comp, FUNC_NONE, NULL);
                             break;
 			case DESTINATION:
-                                $$.self = NewBlock1(LNF_FLD_DST_TOS, $4, $3.comp, FUNC_NONE);
+                                $$.self = NewBlock1(LNF_FLD_DST_TOS, $4, $3.comp, FUNC_NONE, NULL);
 				break;
 			case SOURCE_OR_DESTINATION: 
 				$$.self = Connect_OR(
-                                                     NewBlock1(LNF_FLD_TOS, $4, $3.comp, FUNC_NONE),
-                                                     NewBlock1(LNF_FLD_DST_TOS, $4, $3.comp, FUNC_NONE)
+                                                     NewBlock1(LNF_FLD_TOS, $4, $3.comp, FUNC_NONE, NULL),
+                                                     NewBlock1(LNF_FLD_DST_TOS, $4, $3.comp, FUNC_NONE, NULL)
 				);
 				break;
 			case SOURCE_AND_DESTINATION:
 				$$.self = Connect_AND(
-                                                      NewBlock1(LNF_FLD_TOS, $4, $3.comp, FUNC_NONE),
-                                                      NewBlock1(LNF_FLD_DST_TOS, $4, $3.comp, FUNC_NONE)
+                                                      NewBlock1(LNF_FLD_TOS, $4, $3.comp, FUNC_NONE, NULL),
+                                                      NewBlock1(LNF_FLD_DST_TOS, $4, $3.comp, FUNC_NONE, NULL)
 				);
 				break;
 			default:
@@ -279,7 +279,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			yyerror("Flags must be 0..63");
 			YYABORT;
 		}
-		$$.self = NewBlock1(LNF_FLD_TCP_FLAGS, $3, $2.comp, FUNC_NONE);
+		$$.self = NewBlock1(LNF_FLD_TCP_FLAGS, $3, $2.comp, FUNC_NONE, NULL);
 	}
 
 	| FLAGS STRING	{	
@@ -305,7 +305,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			YYABORT;
 		}
 
-		$$.self = NewBlock1(LNF_FLD_TCP_FLAGS, fl, CMP_FLAGS, FUNC_NONE);
+		$$.self = NewBlock1(LNF_FLD_TCP_FLAGS, fl, CMP_FLAGS, FUNC_NONE, NULL);
 	}
 
 	| dqual IP STRING { 	
@@ -470,15 +470,15 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 	}
 
 	| CLIENT LATENCY comp NUMBER { 	
-                $$.self = NewBlock1(LNF_FLD_CLIENT_NW_DELAY_USEC, $4, $3.comp, FUNC_NONE);
+                $$.self = NewBlock1(LNF_FLD_CLIENT_NW_DELAY_USEC, $4, $3.comp, FUNC_NONE, NULL);
 	}
 
 	| SERVER LATENCY comp NUMBER {
-                $$.self = NewBlock1(LNF_FLD_SERVER_NW_DELAY_USEC, $4, $3.comp, FUNC_NONE);
+                $$.self = NewBlock1(LNF_FLD_SERVER_NW_DELAY_USEC, $4, $3.comp, FUNC_NONE, NULL);
 	}
 
 	| APP LATENCY comp NUMBER {
-                $$.self = NewBlock1(LNF_FLD_APPL_LATENCY_USEC, $4, $3.comp, FUNC_NONE);
+                $$.self = NewBlock1(LNF_FLD_APPL_LATENCY_USEC, $4, $3.comp, FUNC_NONE, NULL);
 	}
 
 	| SYSID NUMBER { 	
@@ -486,7 +486,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			yyerror("Router SysID expected between be 1..255");
 			YYABORT;
 		}
-		$$.self = NewBlock1(LNF_FLD_ENGINE_ID, $2, CMP_EQ, FUNC_NONE);
+		$$.self = NewBlock1(LNF_FLD_ENGINE_ID, $2, CMP_EQ, FUNC_NONE, NULL);
 	}
 
 	| dqual PORT comp NUMBER {	
@@ -497,21 +497,21 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 
 		switch ( $1.direction ) {
 			case SOURCE:
-                                $$.self = NewBlock1(LNF_FLD_SRCPORT, $4, $3.comp, FUNC_NONE);
+                                $$.self = NewBlock1(LNF_FLD_SRCPORT, $4, $3.comp, FUNC_NONE, NULL);
 				break;
 			case DESTINATION:
-                                $$.self = NewBlock1(LNF_FLD_DSTPORT, $4, $3.comp, FUNC_NONE);
+                                $$.self = NewBlock1(LNF_FLD_DSTPORT, $4, $3.comp, FUNC_NONE, NULL);
 				break;
 			case DIR_UNSPEC:
 			case SOURCE_OR_DESTINATION:
 				$$.self = Connect_OR(
-                                                     NewBlock1(LNF_FLD_SRCPORT, $4, $3.comp, FUNC_NONE),
-                                                     NewBlock1(LNF_FLD_DSTPORT, $4, $3.comp, FUNC_NONE));
+                                                     NewBlock1(LNF_FLD_SRCPORT, $4, $3.comp, FUNC_NONE, NULL),
+                                                     NewBlock1(LNF_FLD_DSTPORT, $4, $3.comp, FUNC_NONE, NULL));
 				break;
 			case SOURCE_AND_DESTINATION:
 				$$.self = Connect_AND(
-                                                      NewBlock1(LNF_FLD_SRCPORT, $4, $3.comp, FUNC_NONE),
-                                                      NewBlock1(LNF_FLD_DSTPORT, $4, $3.comp, FUNC_NONE));
+                                                      NewBlock1(LNF_FLD_SRCPORT, $4, $3.comp, FUNC_NONE, NULL),
+                                                      NewBlock1(LNF_FLD_DSTPORT, $4, $3.comp, FUNC_NONE, NULL));
 				break;
 			default:
 				yyerror("This token is not expected here!");
@@ -524,16 +524,16 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 #ifdef NSEL
 		switch ( $1.direction ) {
 			case SOURCE:
-					$$.self = NewBlock1(LNF_FLD_SRCPORT, 0, CMP_EQ, FUNC_PBLOCK);
+					$$.self = NewBlock1(LNF_FLD_SRCPORT, 0, CMP_EQ, FUNC_PBLOCK, NULL);
 				break;
 			case DESTINATION:
-					$$.self = NewBlock1(LNF_FLD_DSTPORT, 0, CMP_EQ, FUNC_PBLOCK);
+					$$.self = NewBlock1(LNF_FLD_DSTPORT, 0, CMP_EQ, FUNC_PBLOCK, NULL);
 				break;
 			case DIR_UNSPEC:
 			case SOURCE_OR_DESTINATION:
                             $$.self = Connect_OR(
-                                      NewBlock1(LNF_FLD_SRCPORT, 0, CMP_EQ, FUNC_PBLOCK),
-                                      NewBlock1(LNF_FLD_DSTPORT, 0, CMP_EQ, FUNC_PBLOCK));
+                                      NewBlock1(LNF_FLD_SRCPORT, 0, CMP_EQ, FUNC_PBLOCK, NULL),
+                                      NewBlock1(LNF_FLD_DSTPORT, 0, CMP_EQ, FUNC_PBLOCK, NULL));
 				break;
 			default:
 				yyerror("This token is not expected here!");

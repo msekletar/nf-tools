@@ -272,7 +272,7 @@ uint32_t	NewBlock(uint32_t offset, uint64_t mask, uint64_t value, uint16_t comp,
 
 } /* End of NewBlock */
 
-uint32_t NewBlock1(off_t field, uint64_t value, uint16_t comp, uint32_t function) {
+uint32_t NewBlock1(off_t field, uint64_t value, uint16_t comp, uint32_t function, void *data) {
         uint32_t n = NumBlocks;
         
         if ( n >= ( memblocks * MAXBLOCKS ) ) {
@@ -297,6 +297,8 @@ uint32_t NewBlock1(off_t field, uint64_t value, uint16_t comp, uint32_t function
 
         FilterTree[n].function1 = flow_lnf_procs_map[function].function;
         FilterTree[n].fname = flow_lnf_procs_map[function].name;
+
+        FilterTree[n].data = data;
         
 	FilterTree[n].numblocks = 1;
 	FilterTree[n].blocklist = (uint32_t *)malloc(sizeof(uint32_t));
