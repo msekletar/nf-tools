@@ -582,25 +582,25 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 				RB_FOREACH(node, ULongtree, (ULongtree_t *)$5) {
 					node->value = (node->value << ShiftSrcPort) & MaskSrcPort;
 				}
-				$$.self = NewBlock(OffsetPort, MaskSrcPort, 0, CMP_ULLIST, FUNC_NONE, (void *)$5 );
+				$$.self = NewBlock1(LNF_FLD_SRCPORT, 0, CMP_ULLIST, FUNC_NONE, (void *)$5 );
 				break;
 			case DESTINATION:
 				RB_FOREACH(node, ULongtree, (ULongtree_t *)$5) {
 					node->value = (node->value << ShiftDstPort) & MaskDstPort;
 				}
-				$$.self = NewBlock(OffsetPort, MaskDstPort, 0, CMP_ULLIST, FUNC_NONE, (void *)$5 );
+                                $$.self = NewBlock1(LNF_FLD_DSTPORT, 0, CMP_ULLIST, FUNC_NONE, (void *)$5 );
 				break;
 			case DIR_UNSPEC:
 			case SOURCE_OR_DESTINATION:
-				$$.self = Connect_OR(
-					NewBlock(OffsetPort, MaskSrcPort, 0, CMP_ULLIST, FUNC_NONE, (void *)$5 ),
-					NewBlock(OffsetPort, MaskDstPort, 0, CMP_ULLIST, FUNC_NONE, (void *)root )
+                                $$.self = Connect_OR(
+                                        NewBlock1(LNF_FLD_SRCPORT, 0, CMP_ULLIST, FUNC_NONE, (void *)$5 ),
+                                        NewBlock1(LNF_FLD_DSTPORT, 0, CMP_ULLIST, FUNC_NONE, (void *)root )
 				);
 				break;
 			case SOURCE_AND_DESTINATION:
 				$$.self = Connect_AND(
-					NewBlock(OffsetPort, MaskSrcPort, 0, CMP_ULLIST, FUNC_NONE, (void *)$5 ),
-					NewBlock(OffsetPort, MaskDstPort, 0, CMP_ULLIST, FUNC_NONE, (void *)root )
+					NewBlock1(LNF_FLD_SRCPORT, 0, CMP_ULLIST, FUNC_NONE, (void *)$5 ),
+					NewBlock1(LNF_FLD_DSTPORT, 0, CMP_ULLIST, FUNC_NONE, (void *)root )
 				);
 				break;
 			default:
