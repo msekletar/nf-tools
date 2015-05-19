@@ -1276,22 +1276,22 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 
 		switch ( $1.direction ) {
 			case SOURCE:
-				$$.self = NewBlock(OffsetMask, MaskSrcMask, ($3 << ShiftSrcMask) & MaskSrcMask, CMP_EQ, FUNC_NONE, NULL );
+				$$.self = NewBlock1(LNF_FLD_SRC_MASK, $3, CMP_EQ, FUNC_NONE, NULL);
 				break;
 			case DESTINATION:
-				$$.self = NewBlock(OffsetMask, MaskDstMask, ($3 << ShiftDstMask) & MaskDstMask, CMP_EQ, FUNC_NONE, NULL );
+				$$.self = NewBlock1(LNF_FLD_DST_MASK, $3, CMP_EQ, FUNC_NONE, NULL);
 				break;
 			case DIR_UNSPEC:
 			case SOURCE_OR_DESTINATION:
 				$$.self = Connect_OR(
-					NewBlock(OffsetMask, MaskSrcMask, ($3 << ShiftSrcMask) & MaskSrcMask, CMP_EQ, FUNC_NONE, NULL ),
-					NewBlock(OffsetMask, MaskDstMask, ($3 << ShiftDstMask) & MaskDstMask, CMP_EQ, FUNC_NONE, NULL )
+					NewBlock1(LNF_FLD_SRC_MASK, $3, CMP_EQ, FUNC_NONE, NULL),
+					NewBlock1(LNF_FLD_DST_MASK, $3, CMP_EQ, FUNC_NONE, NULL)
 				);
 				break;
 			case SOURCE_AND_DESTINATION:
 				$$.self = Connect_AND(
-					NewBlock(OffsetMask, MaskSrcMask, ($3 << ShiftSrcMask) & MaskSrcMask, CMP_EQ, FUNC_NONE, NULL ),
-					NewBlock(OffsetMask, MaskDstMask, ($3 << ShiftDstMask) & MaskDstMask, CMP_EQ, FUNC_NONE, NULL )
+					NewBlock1(LNF_FLD_SRC_MASK, $3, CMP_EQ, FUNC_NONE, NULL),
+					NewBlock1(LNF_FLD_DST_MASK, $3, CMP_EQ, FUNC_NONE, NULL)
 				);
 				break;
 			default:
