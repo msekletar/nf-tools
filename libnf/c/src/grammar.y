@@ -1173,29 +1173,29 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 
 		switch ( $1.direction ) {
 			case SOURCE:
-				$$.self = NewBlock(OffsetAS, MaskSrcAS, ($4 << ShiftSrcAS) & MaskSrcAS, $3.comp, FUNC_NONE, NULL );
+				$$.self = NewBlock1(LNF_FLD_SRCAS, $4, $3.comp, FUNC_NONE, NULL);
 				break;
 			case DESTINATION:
-				$$.self = NewBlock(OffsetAS, MaskDstAS, ($4 << ShiftDstAS) & MaskDstAS, $3.comp, FUNC_NONE, NULL);
+				$$.self = NewBlock1(LNF_FLD_DSTAS, $4, $3.comp, FUNC_NONE, NULL);
 				break;
 			case DIR_UNSPEC:
 			case SOURCE_OR_DESTINATION:
 				$$.self = Connect_OR(
-					NewBlock(OffsetAS, MaskSrcAS, ($4 << ShiftSrcAS) & MaskSrcAS, $3.comp, FUNC_NONE, NULL ),
-					NewBlock(OffsetAS, MaskDstAS, ($4 << ShiftDstAS) & MaskDstAS, $3.comp, FUNC_NONE, NULL)
+					NewBlock1(LNF_FLD_SRCAS, $4, $3.comp, FUNC_NONE, NULL),
+					NewBlock1(LNF_FLD_DSTAS, $4, $3.comp, FUNC_NONE, NULL)
 				);
 				break;
 			case SOURCE_AND_DESTINATION:
 				$$.self = Connect_AND(
-					NewBlock(OffsetAS, MaskSrcAS, ($4 << ShiftSrcAS) & MaskSrcAS, $3.comp, FUNC_NONE, NULL ),
-					NewBlock(OffsetAS, MaskDstAS, ($4 << ShiftDstAS) & MaskDstAS, $3.comp, FUNC_NONE, NULL)
+					NewBlock1(LNF_FLD_SRCAS, $4, $3.comp, FUNC_NONE, NULL),
+					NewBlock1(LNF_FLD_DSTAS, $4, $3.comp, FUNC_NONE, NULL)
 				);
 				break;
 			case ADJ_PREV:
-				$$.self = NewBlock(OffsetBGPadj, MaskBGPadjPrev, ($4 << ShiftBGPadjPrev) & MaskBGPadjPrev, $3.comp, FUNC_NONE, NULL );
+				$$.self = NewBlock1(LNF_FLD_BGPPREVADJACENTAS, $4, $3.comp, FUNC_NONE, NULL);
 				break;
 			case ADJ_NEXT:
-				$$.self = NewBlock(OffsetBGPadj, MaskBGPadjNext, ($4 << ShiftBGPadjNext) & MaskBGPadjNext, $3.comp, FUNC_NONE, NULL );
+				$$.self = NewBlock1(LNF_FLD_BGPNEXTADJACENTAS, $4, $3.comp, FUNC_NONE, NULL);
 				break;
 			default:
 				yyerror("This token is not expected here!");
@@ -1240,25 +1240,25 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 				RB_FOREACH(node, ULongtree, (ULongtree_t *)$5) {
 					node->value = (node->value << ShiftSrcAS) & MaskSrcAS;
 				}
-				$$.self = NewBlock(OffsetAS, MaskSrcAS, 0, CMP_ULLIST, FUNC_NONE, (void *)$5 );
+                                $$.self = NewBlock1(LNF_FLD_SRCAS, 0, CMP_ULLIST, FUNC_NONE, (void *) $5);
 				break;
 			case DESTINATION:
 				RB_FOREACH(node, ULongtree, (ULongtree_t *)$5) {
 					node->value = (node->value << ShiftDstAS) & MaskDstAS;
 				}
-				$$.self = NewBlock(OffsetAS, MaskDstAS, 0, CMP_ULLIST, FUNC_NONE, (void *)$5 );
+                                $$.self = NewBlock1(LNF_FLD_DSTAS, 0, CMP_ULLIST, FUNC_NONE, (void *) $5);
 				break;
 			case DIR_UNSPEC:
 			case SOURCE_OR_DESTINATION:
 				$$.self = Connect_OR(
-					NewBlock(OffsetAS, MaskSrcAS, 0, CMP_ULLIST, FUNC_NONE, (void *)$5 ),
-					NewBlock(OffsetAS, MaskDstAS, 0, CMP_ULLIST, FUNC_NONE, (void *)root )
+				        NewBlock1(LNF_FLD_SRCAS, 0, CMP_ULLIST, FUNC_NONE, (void *) $5),
+				        NewBlock1(LNF_FLD_DSTAS, 0, CMP_ULLIST, FUNC_NONE, (void *) $5)
 				);
 				break;
 			case SOURCE_AND_DESTINATION:
 				$$.self = Connect_AND(
-					NewBlock(OffsetAS, MaskSrcAS, 0, CMP_ULLIST, FUNC_NONE, (void *)$5 ),
-					NewBlock(OffsetAS, MaskDstAS, 0, CMP_ULLIST, FUNC_NONE, (void *)root )
+				        NewBlock1(LNF_FLD_SRCAS, 0, CMP_ULLIST, FUNC_NONE, (void *) $5),
+				        NewBlock1(LNF_FLD_DSTAS, 0, CMP_ULLIST, FUNC_NONE, (void *) $5)
 				);
 				break;
 			default:
