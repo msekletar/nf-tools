@@ -322,7 +322,6 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			// could not resolv host => 'not any'
 			$$.self = Invert(NewBlock(OffsetProto, 0, 0, CMP_EQ, FUNC_NONE, NULL )); 
 		} else {
-			uint64_t offsets[4] = {OffsetSrcIPv6a, OffsetSrcIPv6b, OffsetDstIPv6a, OffsetDstIPv6b };
 			if ( af && (( af == PF_INET && bytes != 4 ) || ( af == PF_INET6 && bytes != 16 ))) {
 				yyerror("incomplete IP address");
 				YYABORT;
@@ -331,17 +330,17 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			switch ( $1.direction ) {
 				case SOURCE:
 				case DESTINATION:
-					$$.self = ChainHosts(offsets, IPstack, num_ip, $1.direction);
+					$$.self = ChainHosts1(IPstack, num_ip, $1.direction);
 					break;
 				case DIR_UNSPEC:
 				case SOURCE_OR_DESTINATION: {
-					uint32_t src = ChainHosts(offsets, IPstack, num_ip, SOURCE);
-					uint32_t dst = ChainHosts(offsets, IPstack, num_ip, DESTINATION);
+					uint32_t src = ChainHosts1(IPstack, num_ip, SOURCE);
+					uint32_t dst = ChainHosts1(IPstack, num_ip, DESTINATION);
 					$$.self = Connect_OR(src, dst);
 					} break;
 				case SOURCE_AND_DESTINATION: {
-					uint32_t src = ChainHosts(offsets, IPstack, num_ip, SOURCE);
-					uint32_t dst = ChainHosts(offsets, IPstack, num_ip, DESTINATION);
+					uint32_t src = ChainHosts1(IPstack, num_ip, SOURCE);
+					uint32_t dst = ChainHosts1(IPstack, num_ip, DESTINATION);
 					$$.self = Connect_AND(src, dst);
 					} break;
 				default:
