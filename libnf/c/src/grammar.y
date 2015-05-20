@@ -71,6 +71,7 @@ x *
 static void  yyerror(char *msg);
 
 static uint32_t ChainHosts(uint64_t *offsets, uint64_t *hostlist, int num_records, int type);
+static uint32_t ChainHosts1(uint64_t *hostlist, int num_records, int type);
 
 static uint64_t VerifyMac(char *s);
 
@@ -2142,6 +2143,35 @@ uint32_t offset_a, offset_b, i, j, block;
 	return block;
 
 } // End of ChainHosts
+
+static uint32_t ChainHosts1(uint64_t *hostlist, int num_records, int type) {
+        uint32_t i = 0, j, field, block;
+
+        struct in6_addr a;
+        uint64_t *p = (uint64_t *) &a;
+
+        p[0] = htonll(hostlist[i]);
+        p[1] = htonll(hostlist[i + 1]);
+
+        field = type == SOURCE ? LNF_FLD_SRCADDR : LNF_FLD_DSTADDR;
+
+	block = NewBlock1(field, VAL_IP(a), CMP_EQ, FUNC_NONE, NULL),
+	i += 2;
+
+	for (j = 1, i = 2; j < num_records; j++, i += 2) {
+		uint32_t b;
+                                
+                p[0] = htonll(hostlist[i]);
+                p[1] = htonll(hostlist[i + 1]);
+
+                b = NewBlock1(field, VAL_IP(a), CMP_EQ, FUNC_NONE, NULL);
+		block = Connect_OR(block, b);
+	}
+
+	return block;
+
+} // End of ChainHosts
+
 
 uint64_t VerifyMac(char *s) {
 uint64_t mac;
