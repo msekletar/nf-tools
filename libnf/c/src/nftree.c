@@ -43,6 +43,7 @@
 #include <sys/types.h>
 #include <string.h>
 #include <errno.h>
+#include <arpa/inet.h>
 
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
@@ -89,7 +90,7 @@ static inline void mpls_eos_function(uint64_t *record_data, uint64_t *comp_value
 static inline void mpls_any_function(uint64_t *record_data, uint64_t *comp_values);
 static inline void pblock_function(uint64_t *record_data, uint64_t *comp_values);
 
-static inline void pblock_function1(void *r, uint64_t *comp_values);
+static inline void pblock_function1(void *r, BlockValue *v, BlockValue *v1);
 
 /* 
  * flow processing function table:
@@ -110,7 +111,7 @@ static struct flow_procs_map_s {
 	{NULL,			NULL}
 };
 
-typedef void (*flow_lnf_proc_t) (void *r, uint64_t *comp_values);
+typedef void (*flow_lnf_proc_t) (void *r, BlockValue *v, BlockValue *v2);
 
 static struct flow_lnf_procs_map_s {
 	char		*name;
@@ -272,7 +273,7 @@ uint32_t	NewBlock(uint32_t offset, uint64_t mask, uint64_t value, uint16_t comp,
 
 } /* End of NewBlock */
 
-uint32_t NewBlock1(off_t field, uint64_t value, uint16_t comp, uint32_t function, void *data) {
+uint32_t NewBlock1(off_t field, BlockValue value, uint16_t comp, uint32_t function, void *data) {
         uint32_t n = NumBlocks;
         
         if ( n >= ( memblocks * MAXBLOCKS ) ) {
@@ -286,10 +287,10 @@ uint32_t NewBlock1(off_t field, uint64_t value, uint16_t comp, uint32_t function
         
         Extended = 1;
         
-        FilterTree[n].type = 1;
+        FilterTree[n].type = LNF_BLOCK;
         FilterTree[n].field = field;
         
-	FilterTree[n].value = value;
+        FilterTree[n].value1 = value;
 	FilterTree[n].invert = 0;
 	FilterTree[n].OnTrue = 0;
 	FilterTree[n].OnFalse = 0;
@@ -495,42 +496,60 @@ int	evaluate, invert;
 
 /* extended filter engine */
 int RunExtendedFilter(FilterEngine_data_t *args) {
-uint32_t	index, offset; 
-uint64_t	comp_value[2];
-int	evaluate, invert;
+        uint32_t index, offset; 
+        uint64_t comp_value[2];
+        int evaluate, invert;
 
 	index = args->StartNode;
 	evaluate = 0;
 	invert = 0;
+	int fields[LNF_FLD_TERM_];
+        int field_type;
+        BlockValue val;
+        BlockType block_type = args->filter[index].type;
+
+        lnf_fld_info(LNF_FLD_ZERO_, LNF_FLD_INFO_FIELDS, &fields, sizeof(fields));
+
 	while ( index ) {
 		offset   = args->filter[index].offset;
 		invert   = args->filter[index].invert;
-                
-                if (args->filter[index].type ==1) {
-                        lnf_rec_fget(args->lnf_rec, args->filter[index].field, &comp_value[0]);
-                } else
-                         comp_value[0]= args->nfrecord[offset] & args->filter[index].mask;
-                
-		comp_value[1] = args->filter[index].value;
 
-                if (args->filter[index].type == 1) {
-                        if (args->filter[index].function1 != NULL)
-                                args->filter[index].function1(args->lnf_rec, comp_value);
-                } else
-                        if (args->filter[index].function != NULL)
-                                args->filter[index].function(args->nfrecord, comp_value);
+                lnf_fld_info(args->filter[index].field, LNF_FLD_INFO_TYPE, &field_type, sizeof(field_type));
+
+                /* All types except LNF_ADDR are 64 bit wide */
+                if (block_type == LNF_BLOCK)
+                        lnf_rec_fget(args->lnf_rec, args->filter[index].field, field_type == LNF_ADDR ? (void *) &val.addr : (void *) &val.data);
+                else {
+                        comp_value[0]= args->nfrecord[offset] & args->filter[index].mask;
+                        comp_value[1] = args->filter[index].value;
+                }
+
+                if (block_type == BASIC_BLOCK && args->filter[index].function)
+                        args->filter[index].function(args->nfrecord, comp_value);
+                else if (block_type == LNF_BLOCK && args->filter[index].function1)
+                        args->filter[index].function1(args->lnf_rec, &val, &args->filter[index].value1);
 
                 
-
 		switch (args->filter[index].comp) {
 			case CMP_EQ:
-				evaluate = comp_value[0] == comp_value[1];
+                                if (block_type == BASIC_BLOCK)
+                                        evaluate = comp_value[0] == comp_value[1];
+                                else if (block_type == LNF_BLOCK && field_type != LNF_ADDR)
+                                        evaluate = val.data == args->filter[index].value1.data;
+                                else if (block_type == LNF_BLOCK && field_type == LNF_ADDR)
+                                        evaluate = memcmp(&val.addr, &args->filter[index].value1.addr, sizeof(val.addr)) == 0;
 				break;
 			case CMP_GT:
-				evaluate = comp_value[0] > comp_value[1];
+                                if (block_type == BASIC_BLOCK)
+                                        evaluate = comp_value[0] > comp_value[1];
+                                else if (block_type == LNF_BLOCK && field_type != LNF_ADDR)
+                                        evaluate = val.data > args->filter[index].value1.data;
 				break;
 			case CMP_LT:
-				evaluate = comp_value[0] < comp_value[1];
+                                if (block_type == BASIC_BLOCK)
+                                        evaluate = comp_value[0] < comp_value[1];
+                                else if (block_type == LNF_BLOCK && field_type != LNF_ADDR)
+                                        evaluate = val.data <  args->filter[index].value1.data;
 				break;
 			case CMP_IDENT:
 				evaluate = strncmp(CurrentIdent, args->IdentList[comp_value[1]], IDENTLEN) == 0 ;
@@ -690,18 +709,18 @@ master_record_t *record = (master_record_t *)record_data;
 #endif
 } // End of pblock_function
 
-static inline void pblock_function1(lnf_rec_t *r, uint64_t *comp_values) {
+static inline void pblock_function1(lnf_rec_t *r, BlockValue *v, BlockValue *v1) {
         uint64_t block_start;
         uint64_t block_end;
 
         lnf_rec_fget(r, LNF_FLD_BLOCK_START, &block_start);
         lnf_rec_fget(r, LNF_FLD_BLOCK_END, &block_end);
         
-	if ( (comp_values[0] >= block_start) && (comp_values[0] <= block_end) ) {
-		comp_values[1] = comp_values[0];
+	if ( (v->data >= block_start) && (v->data <= block_end) ) {
+		v1->data = v->data;
 	} else {
 		// force "not equal"
-		comp_values[1] = comp_values[0] + 1;
+                v1->data = v->data + 1;
 	}
 }
 
