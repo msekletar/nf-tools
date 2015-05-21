@@ -34,7 +34,7 @@
  *
  *  $LastChangedRevision: 100 $
  *	
-x *
+ *
  *
  */
 
