@@ -43,7 +43,6 @@
 #include <sys/types.h>
 #include <string.h>
 #include <errno.h>
-#include <arpa/inet.h>
 
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
@@ -59,6 +58,9 @@
 #include "grammar.h"
 
 #include "libnf.h"
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 /*
  * netflow filter engine
@@ -517,9 +519,14 @@ int RunExtendedFilter(FilterEngine_data_t *args) {
                 lnf_fld_info(args->filter[index].field, LNF_FLD_INFO_TYPE, &field_type, sizeof(field_type));
 
                 /* All types except LNF_ADDR are 64 bit wide */
-                if (block_type == LNF_BLOCK)
-                        lnf_rec_fget(args->lnf_rec, args->filter[index].field, field_type == LNF_ADDR ? (void *) &val.addr : (void *) &val.data);
-                else {
+                if (block_type == LNF_BLOCK) {
+                        lnf_rec_fget(args->lnf_rec, args->filter[index].field, 
+                                     field_type == LNF_ADDR ? (void *) &val.addr : (void *) &val.data);
+                        if (field_type == LNF_ADDR) {
+                                val._addr[0] = htobe64(htobe64(val._addr[0]) & htobe64(args->filter[index].value1._m[0]));
+                                val._addr[1] = htobe64(htobe64(val._addr[1]) & htobe64(args->filter[index].value1._m[1]));
+                        }
+                } else {
                         comp_value[0]= args->nfrecord[offset] & args->filter[index].mask;
                         comp_value[1] = args->filter[index].value;
                 }
@@ -562,8 +569,8 @@ int RunExtendedFilter(FilterEngine_data_t *args) {
 				break;
 			case CMP_IPLIST: {
 				struct IPListNode find;
-				find.ip[0] = args->nfrecord[offset];
-				find.ip[1] = args->nfrecord[offset+1];
+				find.ip[0] =  htobe64(*((uint64_t *) &val.addr));
+                                find.ip[1] =  htobe64(*((uint64_t *) &val.addr + 1));
 				find.mask[0] = 0xffffffffffffffffLL;
 				find.mask[1] = 0xffffffffffffffffLL;
 				evaluate = RB_FIND(IPtree, args->filter[index].data, &find) != NULL; }

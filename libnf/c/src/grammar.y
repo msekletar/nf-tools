@@ -42,6 +42,7 @@ x *
 
 #include "config.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -70,8 +71,11 @@ x *
  */
 static void  yyerror(char *msg);
 
+#define ADDR 0
+#define XLATE_ADDR 1
+
 static uint32_t ChainHosts(uint64_t *offsets, uint64_t *hostlist, int num_records, int type);
-static uint32_t ChainHosts1(uint64_t *hostlist, int num_records, int type);
+static uint32_t ChainHosts1(int field, uint64_t *hostlist, int num_records, int type);
 
 static uint64_t VerifyMac(char *s);
 
@@ -330,17 +334,17 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			switch ( $1.direction ) {
 				case SOURCE:
 				case DESTINATION:
-					$$.self = ChainHosts1(IPstack, num_ip, $1.direction);
+					$$.self = ChainHosts1(ADDR, IPstack, num_ip, $1.direction);
 					break;
 				case DIR_UNSPEC:
 				case SOURCE_OR_DESTINATION: {
-					uint32_t src = ChainHosts1(IPstack, num_ip, SOURCE);
-					uint32_t dst = ChainHosts1(IPstack, num_ip, DESTINATION);
+					uint32_t src = ChainHosts1(ADDR, IPstack, num_ip, SOURCE);
+					uint32_t dst = ChainHosts1(ADDR, IPstack, num_ip, DESTINATION);
 					$$.self = Connect_OR(src, dst);
 					} break;
 				case SOURCE_AND_DESTINATION: {
-					uint32_t src = ChainHosts1(IPstack, num_ip, SOURCE);
-					uint32_t dst = ChainHosts1(IPstack, num_ip, DESTINATION);
+					uint32_t src = ChainHosts1(ADDR, IPstack, num_ip, SOURCE);
+					uint32_t dst = ChainHosts1(ADDR, IPstack, num_ip, DESTINATION);
 					$$.self = Connect_AND(src, dst);
 					} break;
 				default:
@@ -352,28 +356,25 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 		}
 	}
 
-	| dqual IP IN '[' iplist ']' { 	
+	| dqual IP IN '[' iplist ']' {
+                                 
 
 		switch ( $1.direction ) {
 			case SOURCE:
-				$$.self = NewBlock(OffsetSrcIPv6a, MaskIPv6, 0 , CMP_IPLIST, FUNC_NONE, (void *)$5 );
+                                $$.self = NewBlock1(LNF_FLD_SRCADDR, VAL_IP({}), CMP_IPLIST, FUNC_NONE, (void *)$5);
 				break;
 			case DESTINATION:
-				$$.self = NewBlock(OffsetDstIPv6a, MaskIPv6, 0 , CMP_IPLIST, FUNC_NONE, (void *)$5 );
+                                $$.self = NewBlock1(LNF_FLD_DSTADDR, VAL_IP({}), CMP_IPLIST, FUNC_NONE, (void *)$5);
 				break;
-			case DIR_UNSPEC:
+                case DIR_UNSPEC:
 			case SOURCE_OR_DESTINATION:
-				$$.self = Connect_OR(
-					NewBlock(OffsetSrcIPv6a, MaskIPv6, 0 , CMP_IPLIST, FUNC_NONE, (void *)$5 ),
-					NewBlock(OffsetDstIPv6a, MaskIPv6, 0 , CMP_IPLIST, FUNC_NONE, (void *)$5 )
-				);
+                            $$.self = Connect_OR(NewBlock1(LNF_FLD_SRCADDR, VAL_IP({}), CMP_IPLIST, FUNC_NONE, (void *) $5),
+                                                 NewBlock1(LNF_FLD_DSTADDR, VAL_IP({}), CMP_IPLIST, FUNC_NONE, (void *) $5));
 				break;
 			case SOURCE_AND_DESTINATION:
-				$$.self = Connect_AND(
-					NewBlock(OffsetSrcIPv6a, MaskIPv6, 0 , CMP_IPLIST, FUNC_NONE, (void *)$5 ),
-					NewBlock(OffsetDstIPv6a, MaskIPv6, 0 , CMP_IPLIST, FUNC_NONE, (void *)$5 )
-				);
-				break;
+                            $$.self = Connect_AND(NewBlock1(LNF_FLD_SRCADDR, VAL_IP({}), CMP_IPLIST, FUNC_NONE, (void *) $5),
+                                                  NewBlock1(LNF_FLD_DSTADDR, VAL_IP({}), CMP_IPLIST, FUNC_NONE, (void *) $5));
+                            break;
 			default:
 				yyerror("This token is not expected here!");
 				YYABORT;
@@ -382,6 +383,8 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 
 	| NEXT IP STRING { 	
 		int af, bytes, ret;
+                struct in6_addr addr;
+                uint64_t *p = (uint64_t *) &addr;
 
 		ret = parse_ip(&af, $3, IPstack, &bytes, STRICT_IP, &num_ip);
 
@@ -401,20 +404,22 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			YYABORT;
 		}
 
-		$$.self = Connect_AND(
-			NewBlock(OffsetNexthopv6b, MaskIPv6, IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-			NewBlock(OffsetNexthopv6a, MaskIPv6, IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-		);
+                p[0] = htobe64(IPstack[0]);
+                p[1] = htobe64(IPstack[1]);
+
+		$$.self = NewBlock1(LNF_FLD_IP_NEXTHOP, VAL_IP(addr), CMP_EQ, FUNC_NONE, NULL);
 	}
 
 	| NEXT IP IN '[' iplist ']' { 	
 
-		$$.self = NewBlock(OffsetNexthopv6a, MaskIPv6, 0 , CMP_IPLIST, FUNC_NONE, (void *)$5 );
+		$$.self = NewBlock1(LNF_FLD_IP_NEXTHOP, VAL_IP({}), CMP_IPLIST, FUNC_NONE, (void *) $5);
 
 	}
 
 	| BGPNEXTHOP IP STRING { 	
 		int af, bytes, ret;
+                struct in6_addr addr;
+                uint64_t *p = (uint64_t *) &addr;
 
 		ret = parse_ip(&af, $3, IPstack, &bytes, STRICT_IP, &num_ip);
 
@@ -434,14 +439,16 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			YYABORT;
 		}
 
-		$$.self = Connect_AND(
-			NewBlock(OffsetBGPNexthopv6b, MaskIPv6, IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-			NewBlock(OffsetBGPNexthopv6a, MaskIPv6, IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-		);
+                p[0] = htobe64(IPstack[0]);
+                p[1] = htobe64(IPstack[1]);
+
+		$$.self = NewBlock1(LNF_FLD_BGP_NEXTHOP, VAL_IP(addr), CMP_EQ, FUNC_NONE, NULL);
 	}
 
 	| ROUTER IP STRING { 	
 		int af, bytes, ret;
+                struct in6_addr addr;
+                uint64_t *p = (uint64_t *) &addr;
 
 		ret = parse_ip(&af, $3, IPstack, &bytes, STRICT_IP, &num_ip);
 
@@ -459,12 +466,12 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 		if ( af && (( af == PF_INET && bytes != 4 ) || ( af == PF_INET6 && bytes != 16 ))) {
 			yyerror("incomplete IP address");
 			YYABORT;
-		}
+		}               
 
-		$$.self = Connect_AND(
-			NewBlock(OffsetRouterv6b, MaskIPv6, IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-			NewBlock(OffsetRouterv6a, MaskIPv6, IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-		);
+                p[0] = htobe64(IPstack[0]);
+                p[1] = htobe64(IPstack[1]);
+
+                $$.self = NewBlock1(LNF_FLD_IP_ROUTER, VAL_IP(addr), CMP_EQ, FUNC_NONE, NULL);
 	}
 
 	| CLIENT LATENCY comp NUMBER { 	
@@ -770,8 +777,7 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			// could not resolv host => 'not any'
 			$$.self = Invert(NewBlock(OffsetProto, 0, 0, CMP_EQ, FUNC_NONE, NULL )); 
 		} else {
-			uint64_t offsets[4] = {OffsetXLATESRCv6a, OffsetXLATESRCv6b, OffsetXLATEDSTv6a, OffsetXLATEDSTv6b };
-			if ( af && (( af == PF_INET && bytes != 4 ) || ( af == PF_INET6 && bytes != 16 ))) {
+                    if ( af && (( af == PF_INET && bytes != 4 ) || ( af == PF_INET6 && bytes != 16 ))) {
 				yyerror("incomplete IP address");
 				YYABORT;
 			}
@@ -779,17 +785,17 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			switch ( $1.direction ) {
 				case SOURCE:
 				case DESTINATION:
-					$$.self = ChainHosts(offsets, IPstack, num_ip, $1.direction);
+					$$.self = ChainHosts1(XLATE_ADDR, IPstack, num_ip, $1.direction);
 					break;
 				case DIR_UNSPEC:
 				case SOURCE_OR_DESTINATION: {
-					uint32_t src = ChainHosts(offsets, IPstack, num_ip, SOURCE);
-					uint32_t dst = ChainHosts(offsets, IPstack, num_ip, DESTINATION);
+					uint32_t src = ChainHosts1(XLATE_ADDR, IPstack, num_ip, SOURCE);
+					uint32_t dst = ChainHosts1(XLATE_ADDR, IPstack, num_ip, DESTINATION);
 					$$.self = Connect_OR(src, dst);
 					} break;
 				case SOURCE_AND_DESTINATION: {
-					uint32_t src = ChainHosts(offsets, IPstack, num_ip, SOURCE);
-					uint32_t dst = ChainHosts(offsets, IPstack, num_ip, DESTINATION);
+					uint32_t src = ChainHosts1(XLATE_ADDR, IPstack, num_ip, SOURCE);
+					uint32_t dst = ChainHosts1(XLATE_ADDR, IPstack, num_ip, DESTINATION);
 					$$.self = Connect_AND(src, dst);
 					} break;
 				default:
@@ -809,6 +815,8 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 #ifdef NSEL
 		int af, bytes, ret;
 		uint64_t	mask[2];
+                struct in6_addr addr;
+                uint64_t *p = (uint64_t *) &addr;
 
 		ret = parse_ip(&af, $3, IPstack, &bytes, STRICT_IP, &num_ip);
 		if ( ret == 0 ) {
@@ -845,44 +853,25 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 
 		IPstack[0] &= mask[0];
 		IPstack[1] &= mask[1];
+                
+                p[0] = htobe64(IPstack[0]);
+                p[1] = htobe64(IPstack[1]);
 
 		switch ( $1.direction ) {
 			case SOURCE:
-				$$.self = Connect_AND(
-					NewBlock(OffsetXLATESRCv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-					NewBlock(OffsetXLATESRCv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-				);
+                                $$.self = NewBlock1(LNF_FLD_XLATE_SRC_IP, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL);
 				break;
 			case DESTINATION:
-				$$.self = Connect_AND(
-					NewBlock(OffsetXLATEDSTv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-					NewBlock(OffsetXLATEDSTv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-				);
+                                $$.self = NewBlock1(LNF_FLD_XLATE_DST_IP, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL);
 				break;
 			case DIR_UNSPEC:
 			case SOURCE_OR_DESTINATION:
-				$$.self = Connect_OR(
-					Connect_AND(
-						NewBlock(OffsetXLATESRCv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetXLATESRCv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-					),
-					Connect_AND(
-						NewBlock(OffsetXLATEDSTv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetXLATEDSTv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-					)
-				);
+				$$.self = Connect_OR(NewBlock1(LNF_FLD_XLATE_SRC_IP, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL),
+                                                     NewBlock1(LNF_FLD_XLATE_DST_IP, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL));                                                    
 				break;
 			case SOURCE_AND_DESTINATION:
-				$$.self = Connect_AND(
-					Connect_AND(
-						NewBlock(OffsetXLATESRCv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetXLATESRCv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-					),
-					Connect_AND(
-						NewBlock(OffsetXLATEDSTv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetXLATEDSTv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-					)
-				);
+				$$.self = Connect_AND(NewBlock1(LNF_FLD_XLATE_SRC_IP, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL),
+                                                      NewBlock1(LNF_FLD_XLATE_DST_IP, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL));                                                    
 				break;
 			default:
 				yyerror("This token is not expected here!");
@@ -1128,7 +1117,6 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			// could not resolv host => 'not any'
 			$$.self = Invert(NewBlock(OffsetProto, 0, 0, CMP_EQ, FUNC_NONE, NULL )); 
 		} else {
-			uint64_t offsets[4] = {OffsetXLATESRCv6a, OffsetXLATESRCv6b, OffsetXLATEDSTv6a, OffsetXLATEDSTv6b };
 			if ( af && (( af == PF_INET && bytes != 4 ) || ( af == PF_INET6 && bytes != 16 ))) {
 				yyerror("incomplete IP address");
 				YYABORT;
@@ -1137,17 +1125,17 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 			switch ( $1.direction ) {
 				case SOURCE:
 				case DESTINATION:
-					$$.self = ChainHosts(offsets, IPstack, num_ip, $1.direction);
+					$$.self = ChainHosts1(XLATE_ADDR, IPstack, num_ip, $1.direction);
 					break;
 				case DIR_UNSPEC:
 				case SOURCE_OR_DESTINATION: {
-					uint32_t src = ChainHosts(offsets, IPstack, num_ip, SOURCE);
-					uint32_t dst = ChainHosts(offsets, IPstack, num_ip, DESTINATION);
+					uint32_t src = ChainHosts1(XLATE_ADDR, IPstack, num_ip, SOURCE);
+					uint32_t dst = ChainHosts1(XLATE_ADDR, IPstack, num_ip, DESTINATION);
 					$$.self = Connect_OR(src, dst);
 					} break;
 				case SOURCE_AND_DESTINATION: {
-					uint32_t src = ChainHosts(offsets, IPstack, num_ip, SOURCE);
-					uint32_t dst = ChainHosts(offsets, IPstack, num_ip, DESTINATION);
+					uint32_t src = ChainHosts1(XLATE_ADDR, IPstack, num_ip, SOURCE);
+					uint32_t dst = ChainHosts1(XLATE_ADDR, IPstack, num_ip, DESTINATION);
 					$$.self = Connect_AND(src, dst);
 					} break;
 				default:
@@ -1302,6 +1290,9 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 	| dqual NET STRING STRING { 
 		int af, bytes, ret;
 		uint64_t	mask[2];
+                struct in6_addr addr;
+                uint64_t *p = (uint64_t *) &addr;
+
 		ret = parse_ip(&af, $3, IPstack, &bytes, STRICT_IP, &num_ip);
 
 		if ( ret == 0 ) {
@@ -1343,43 +1334,24 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 		IPstack[0] &= mask[0];
 		IPstack[1] &= mask[1];
 
+		p[0] = htobe64(IPstack[0]);
+		p[1] = htobe64(IPstack[1]);
+
 		switch ( $1.direction ) {
 			case SOURCE:
-				$$.self = Connect_AND(
-					NewBlock(OffsetSrcIPv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-					NewBlock(OffsetSrcIPv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-				);
+				$$.self = NewBlock1(LNF_FLD_SRCADDR, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL); 
 				break;
 			case DESTINATION:
-				$$.self = Connect_AND(
-					NewBlock(OffsetDstIPv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-					NewBlock(OffsetDstIPv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-				);
+				$$.self = NewBlock1(LNF_FLD_DSTADDR, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL); 
 				break;
 			case DIR_UNSPEC:
 			case SOURCE_OR_DESTINATION:
-				$$.self = Connect_OR(
-					Connect_AND(
-						NewBlock(OffsetSrcIPv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetSrcIPv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-					),
-					Connect_AND(
-						NewBlock(OffsetDstIPv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetDstIPv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-					)
-				);		
+				$$.self = Connect_OR(NewBlock1(LNF_FLD_SRCADDR, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL),
+                                                     NewBlock1(LNF_FLD_DSTADDR, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL));
 				break;
 			case SOURCE_AND_DESTINATION:
-				$$.self = Connect_AND(
-					Connect_AND(
-						NewBlock(OffsetSrcIPv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetSrcIPv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-					),
-					Connect_AND(
-						NewBlock(OffsetDstIPv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetDstIPv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-					)
-				);
+				$$.self = Connect_AND(NewBlock1(LNF_FLD_SRCADDR, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL),
+                                                      NewBlock1(LNF_FLD_DSTADDR, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL));
 				break;
 			default:
 				/* should never happen */
@@ -1392,6 +1364,8 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 	| dqual NET STRING '/' NUMBER { 
 		int af, bytes, ret;
 		uint64_t	mask[2];
+                struct in6_addr addr;
+                uint64_t *p = (uint64_t *) &addr;
 
 		ret = parse_ip(&af, $3, IPstack, &bytes, STRICT_IP, &num_ip);
 		if ( ret == 0 ) {
@@ -1429,43 +1403,24 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 		IPstack[0] &= mask[0];
 		IPstack[1] &= mask[1];
 
+		p[0] = htobe64(IPstack[0]);
+		p[1] = htobe64(IPstack[1]);
+
 		switch ( $1.direction ) {
 			case SOURCE:
-				$$.self = Connect_AND(
-					NewBlock(OffsetSrcIPv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-					NewBlock(OffsetSrcIPv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-				);
+                            	$$.self = NewBlock1(LNF_FLD_SRCADDR, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL); 
 				break;
 			case DESTINATION:
-				$$.self = Connect_AND(
-					NewBlock(OffsetDstIPv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-					NewBlock(OffsetDstIPv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-				);
+                                $$.self = NewBlock1(LNF_FLD_DSTADDR, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL); 
 				break;
 			case DIR_UNSPEC:
 			case SOURCE_OR_DESTINATION:
-				$$.self = Connect_OR(
-					Connect_AND(
-						NewBlock(OffsetSrcIPv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetSrcIPv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-					),
-					Connect_AND(
-						NewBlock(OffsetDstIPv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetDstIPv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-					)
-				);
+				$$.self = Connect_OR(NewBlock1(LNF_FLD_SRCADDR, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL),
+                                                     NewBlock1(LNF_FLD_DSTADDR, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL));
 				break;
 			case SOURCE_AND_DESTINATION:
-				$$.self = Connect_AND(
-					Connect_AND(
-						NewBlock(OffsetSrcIPv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetSrcIPv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-					),
-					Connect_AND(
-						NewBlock(OffsetDstIPv6b, mask[1], IPstack[1] , CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetDstIPv6a, mask[0], IPstack[0] , CMP_EQ, FUNC_NONE, NULL )
-					)
-				);
+				$$.self = Connect_AND(NewBlock1(LNF_FLD_SRCADDR, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL),
+                                                      NewBlock1(LNF_FLD_DSTADDR, VAL_IP_MASK(addr, mask), CMP_EQ, FUNC_NONE, NULL));
 				break;
 			default:
 				yyerror("This token is not expected here!");
@@ -1482,16 +1437,14 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 
 		switch ( $1.direction ) {
 			case DIR_UNSPEC:
-				$$.self = Connect_OR(
-					NewBlock(OffsetInOut, MaskInput, ($3 << ShiftInput) & MaskInput, CMP_EQ, FUNC_NONE, NULL),
-					NewBlock(OffsetInOut, MaskOutput, ($3 << ShiftOutput) & MaskOutput, CMP_EQ, FUNC_NONE, NULL)
-				);
+				$$.self = Connect_OR(NewBlock1(LNF_FLD_INPUT, VAL_NUM($3), CMP_EQ, FUNC_NONE, NULL),
+                                                     NewBlock1(LNF_FLD_OUTPUT, VAL_NUM($3), CMP_EQ, FUNC_NONE, NULL));
 				break;
 			case DIR_IN: 
-				$$.self = NewBlock(OffsetInOut, MaskInput, ($3 << ShiftInput) & MaskInput, CMP_EQ, FUNC_NONE, NULL); 
+				$$.self = NewBlock1(LNF_FLD_INPUT, VAL_NUM($3), CMP_EQ, FUNC_NONE, NULL);
 				break;
 			case DIR_OUT: 
-				$$.self = NewBlock(OffsetInOut, MaskOutput, ($3 << ShiftOutput) & MaskOutput, CMP_EQ, FUNC_NONE, NULL); 
+				$$.self = NewBlock1(LNF_FLD_INPUT, VAL_NUM($3), CMP_EQ, FUNC_NONE, NULL);
 				break;
 			default:
 				yyerror("This token is not expected here!");
@@ -1508,23 +1461,19 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 
 		switch ( $1.direction ) {
 			case SOURCE:
-				$$.self = NewBlock(OffsetVlan, MaskSrcVlan, ($3 << ShiftSrcVlan) & MaskSrcVlan, CMP_EQ, FUNC_NONE, NULL );
+                                $$.self = NewBlock1(LNF_FLD_SRC_VLAN, VAL_NUM($3), CMP_EQ, FUNC_NONE, NULL);
 				break;
 			case DESTINATION:
-				$$.self = NewBlock(OffsetVlan, MaskDstVlan, ($3 << ShiftDstVlan) & MaskDstVlan, CMP_EQ, FUNC_NONE, NULL);
+                                $$.self = NewBlock1(LNF_FLD_DST_VLAN, VAL_NUM($3), CMP_EQ, FUNC_NONE, NULL);
 				break;
 			case DIR_UNSPEC:
 			case SOURCE_OR_DESTINATION:
-				$$.self = Connect_OR(
-					NewBlock(OffsetVlan, MaskSrcVlan, ($3 << ShiftSrcVlan) & MaskSrcVlan, CMP_EQ, FUNC_NONE, NULL ),
-					NewBlock(OffsetVlan, MaskDstVlan, ($3 << ShiftDstVlan) & MaskDstVlan, CMP_EQ, FUNC_NONE, NULL)
-				);
+                                $$.self = Connect_OR(NewBlock1(LNF_FLD_SRC_VLAN, VAL_NUM($3), CMP_EQ, FUNC_NONE, NULL),
+                                                     NewBlock1(LNF_FLD_DST_VLAN, VAL_NUM($3), CMP_EQ, FUNC_NONE, NULL));
 				break;
 			case SOURCE_AND_DESTINATION:
-				$$.self = Connect_AND(
-					NewBlock(OffsetVlan, MaskSrcVlan, ($3 << ShiftSrcVlan) & MaskSrcVlan, CMP_EQ, FUNC_NONE, NULL ),
-					NewBlock(OffsetVlan, MaskDstVlan, ($3 << ShiftDstVlan) & MaskDstVlan, CMP_EQ, FUNC_NONE, NULL)
-				);
+				$$.self = Connect_AND(NewBlock1(LNF_FLD_SRC_VLAN, VAL_NUM($3), CMP_EQ, FUNC_NONE, NULL),
+                                                      NewBlock1(LNF_FLD_DST_VLAN, VAL_NUM($3), CMP_EQ, FUNC_NONE, NULL));
 				break;
 			default:
 				yyerror("This token is not expected here!");
@@ -1542,51 +1491,40 @@ term:	ANY { /* this is an unconditionally true expression, as a filter applies i
 		switch ( $1.direction ) {
 			case DIR_UNSPEC: {
 					uint32_t in, out;
-					in  = Connect_OR(
-						NewBlock(OffsetInSrcMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetInDstMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL )
-					);
-					out  = Connect_OR(
-						NewBlock(OffsetOutSrcMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetOutDstMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL )
-					);
+					in  = Connect_OR(NewBlock1(LNF_FLD_IN_SRC_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL),
+                                                         NewBlock1(LNF_FLD_IN_DST_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL));
+
+					out  = Connect_OR(NewBlock1(LNF_FLD_OUT_SRC_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL),
+                                                          NewBlock1(LNF_FLD_OUT_DST_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL));
 					$$.self = Connect_OR(in, out);
 					} break;
 			case DIR_IN:
-					$$.self = Connect_OR(
-						NewBlock(OffsetInSrcMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetInDstMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL )
-					);
+					$$.self  = Connect_OR(NewBlock1(LNF_FLD_IN_SRC_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL),
+                                                              NewBlock1(LNF_FLD_IN_DST_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL));
 					break;
 			case DIR_OUT:
-					$$.self = Connect_OR(
-						NewBlock(OffsetOutSrcMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetOutDstMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL )
-					);
+					$$.self  = Connect_OR(NewBlock1(LNF_FLD_OUT_SRC_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL),
+                                                              NewBlock1(LNF_FLD_OUT_DST_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL));
 					break;
 			case SOURCE:
-					$$.self = Connect_OR(
-						NewBlock(OffsetInSrcMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetOutSrcMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL )
-					);
+					$$.self  = Connect_OR(NewBlock1(LNF_FLD_IN_SRC_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL),
+                                                              NewBlock1(LNF_FLD_OUT_SRC_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL));
 					break;
 			case DESTINATION:
-					$$.self = Connect_OR(
-						NewBlock(OffsetInDstMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL ),
-						NewBlock(OffsetOutDstMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL )
-					);
+					$$.self  = Connect_OR(NewBlock1(LNF_FLD_IN_DST_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL),
+                                                              NewBlock1(LNF_FLD_OUT_DST_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL));
 					break;
 			case IN_SRC: 
-					$$.self = NewBlock(OffsetInSrcMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL );
+                                        $$.self = NewBlock1(LNF_FLD_IN_SRC_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL);
 					break;
 			case IN_DST: 
-					$$.self = NewBlock(OffsetInDstMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL );
+                                        $$.self = NewBlock1(LNF_FLD_IN_DST_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL);
 					break;
 			case OUT_SRC: 
-					$$.self = NewBlock(OffsetOutSrcMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL );
+                                        $$.self = NewBlock1(LNF_FLD_OUT_SRC_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL);
 					break;
 			case OUT_DST:
-					$$.self = NewBlock(OffsetOutDstMAC, MaskMac, mac, CMP_EQ, FUNC_NONE, NULL );
+                                        $$.self = NewBlock1(LNF_FLD_OUT_DST_MAC, VAL_NUM(mac), CMP_EQ, FUNC_NONE, NULL);
 					break;
 				break;
 			default:
@@ -2141,27 +2079,32 @@ uint32_t offset_a, offset_b, i, j, block;
 
 } // End of ChainHosts
 
-static uint32_t ChainHosts1(uint64_t *hostlist, int num_records, int type) {
-        uint32_t i = 0, j, field, block;
+static uint32_t ChainHosts1(int field, uint64_t *hostlist, int num_records, int type) {
+        uint32_t i = 0, j, f, block;
 
         struct in6_addr a;
         uint64_t *p = (uint64_t *) &a;
 
-        p[0] = htonll(hostlist[i]);
-        p[1] = htonll(hostlist[i + 1]);
+        p[0] = htobe64(hostlist[i]);
+        p[1] = htobe64(hostlist[i + 1]);
 
-        field = type == SOURCE ? LNF_FLD_SRCADDR : LNF_FLD_DSTADDR;
+        assert(field == ADDR || field == XLATE_ADDR);
 
-	block = NewBlock1(field, VAL_IP(a), CMP_EQ, FUNC_NONE, NULL),
+        if (field == ADDR)
+            f = type == SOURCE ? LNF_FLD_SRCADDR : LNF_FLD_DSTADDR;
+        else if (field == XLATE_ADDR) 
+            f = type == SOURCE ? LNF_FLD_XLATE_SRC_IP : LNF_FLD_XLATE_SRC_IP;
+
+	block = NewBlock1(f, VAL_IP(a), CMP_EQ, FUNC_NONE, NULL),
 	i += 2;
 
 	for (j = 1, i = 2; j < num_records; j++, i += 2) {
 		uint32_t b;
                                 
-                p[0] = htonll(hostlist[i]);
-                p[1] = htonll(hostlist[i + 1]);
+                p[0] = htobe64(hostlist[i]);
+                p[1] = htobe64(hostlist[i + 1]);
 
-                b = NewBlock1(field, VAL_IP(a), CMP_EQ, FUNC_NONE, NULL);
+                b = NewBlock1(f, VAL_IP(a), CMP_EQ, FUNC_NONE, NULL);
 		block = Connect_OR(block, b);
 	}
 
